@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ИИ-агент мониторинга стандартов ВФА</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Один визуальный мир с роликом: ночной синий, бирюза — действие агента, янтарь — расхождения. Слайды идут сверху вниз, каждый — одна мысль. */
+  --bg: #0e1b2d;
+  --panel: #182a42;
+  --panel-2: #1f3654;
+  --line: #2c4566;
+  --text: #ecf1f7;
+  --muted: #96a8be;
+  --teal: #2bb3a3;
+  --amber: #f2b544;
+  --red: #e86a5c;
+  --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+section { padding: 64px 0; border-top: 1px solid var(--line); }
+section:first-of-type { border-top: 0; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(32px, 5.2vw, 56px); line-height: 1.1; font-weight: 700; }
+h2 { font-size: clamp(24px, 3.2vw, 34px); line-height: 1.2; font-weight: 700; margin-bottom: 20px; }
+h3 { font-size: 18px; font-weight: 500; line-height: 1.3; }
+p { margin: 0; max-width: 65ch; }
+.muted { color: var(--muted); }
+.slide-no { font-size: 14px; font-weight: 600; color: var(--teal); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+
+/* hero */
+.hero { padding: 72px 0 56px; }
+.hero .org { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+.hero h1 span { color: var(--teal); }
+.hero .lead { font-size: 21px; margin-top: 24px; color: var(--text); }
+.hero-facts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 15px; }
+.chip b { color: var(--amber); font-weight: 600; }
+
+/* video */
+.video-box { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.video-box video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0e1b2d; }
+.video-cap { padding: 14px 20px; font-size: 15px; color: var(--muted); }
+
+/* problem */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: grid; gap: 12px; align-content: start; }
+.card ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.card.alert { border-left: 4px solid var(--amber); }
+.card.good { border-left: 4px solid var(--teal); }
+.tag { font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.tag.amber { color: var(--amber); } .tag.teal { color: var(--teal); }
+
+/* steps */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: s; }
+.steps li { background: var(--panel); border-radius: 16px; padding: 22px; position: relative; counter-increment: s; display: grid; gap: 8px; align-content: start; }
+.steps li::before { content: counter(s); font-family: var(--font-display); font-weight: 700; font-size: 28px; color: var(--teal); }
+.steps li p { font-size: 15px; color: var(--muted); }
+.note { margin-top: 20px; font-size: 16px; color: var(--muted); }
+
+/* results */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.tile { background: var(--panel); border-radius: 16px; padding: 20px; }
+.tile .n { font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.tile .l { font-size: 15px; color: var(--muted); margin-top: 8px; }
+.n.amber { color: var(--amber); } .n.red { color: var(--red); } .n.teal { color: var(--teal); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 640px; }
+th, td { text-align: left; padding: 13px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: var(--panel); }
+tr:last-child td { border-bottom: 0; }
+td.p { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pill.hi { background: rgba(232,106,92,.18); color: var(--red); }
+.pill.mid { background: rgba(242,181,68,.18); color: var(--amber); }
+.pill.low { background: rgba(150,168,190,.15); color: var(--muted); }
+
+/* compare */
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.cmp > div { padding: 22px 24px; display: grid; gap: 10px; align-content: start; }
+.cmp > div:first-child { border-right: 1px solid var(--line); }
+.cmp ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+
+/* next */
+.next { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.next .card .when { font-size: 13px; font-weight: 600; color: var(--teal); text-transform: uppercase; letter-spacing: .05em; }
+.ask { margin-top: 28px; background: var(--panel-2); border-radius: 16px; padding: 24px 28px; font-size: 20px; }
+.ask b { color: var(--teal); font-weight: 600; }
+footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+
+a { color: var(--teal); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+@media (max-width: 860px) {
+  .steps, .tiles { grid-template-columns: repeat(2, 1fr); }
+  .next, .two, .cmp { grid-template-columns: 1fr; }
+  .cmp > div:first-child { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 420px) {
+  .steps, .tiles { grid-template-columns: 1fr; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <section class="hero">
+    <div class="org">Управление финансового контроля и аудита · Министерство социального развития Московской области</div>
+    <h1>ИИ-агент <span>мониторинга стандартов</span> внутреннего финансового аудита</h1>
+    <p class="lead">Каждый месяц агент сам проверяет изменения федеральных стандартов ВФА и разъяснений Минфина. Потом он сверяет их с нашим Порядком (распоряжение № 21РВ-114) и показывает, что нужно поправить.</p>
+    <div class="hero-facts">
+      <span class="chip">Запуск: <b>1-го числа</b> каждого месяца</span>
+      <span class="chip">Первая сверка: <b>6 расхождений</b></span>
+      <span class="chip">Программирование: <b>не нужно</b></span>
+    </div>
+  </section>
+
+  <section aria-labelledby="v">
+    <div class="slide-no">01 · Как создавался</div>
+    <h2 id="v">Агент собран за один разговор в чате</h2>
+    <div class="video-box">
+      <video controls playsinline preload="metadata" poster="poster.jpg">
+        <source src="agent_video.mp4" type="video/mp4">
+      </video>
+      <div class="video-cap">45 секунд: от постановки задачи обычным языком до ежемесячного автоматического запуска.</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="p">
+    <div class="slide-no">02 · Проблема</div>
+    <h2 id="p">Изменения стандартов легко пропустить</h2>
+    <div class="two">
+      <div class="card alert">
+        <span class="tag amber">Сейчас</span>
+        <ul>
+          <li>Нужно помнить, что пора проверить.</li>
+          <li>Изменения ищем вручную на сайте Минфина и в правовых базах.</li>
+          <li>Читаем приказы и сопоставляем их с Порядком пункт за пунктом.</li>
+          <li>Во время отпуска или в загруженный период проверка откладывается.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag amber">Стандарты меняются регулярно</span>
+        <p>С 2023 года Минфин четыре раза вносил изменения в федеральные стандарты ВФА: приказы № 118н, 158н, 184н (2023) и № 65н (2025). Каждый раз нужно понять, какие пункты Порядка это затрагивает.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h">
+    <div class="slide-no">03 · Как работает</div>
+    <h2 id="h">Четыре шага без участия человека</h2>
+    <ol class="steps">
+      <li><h3>Ищет новое</h3><p>Стандарты ВФА, приказы и проекты Минфина, методические рекомендации, письма, ст. 160.2-1 БК РФ.</p></li>
+      <li><h3>Сверяет</h3><p>Сопоставляет каждое изменение с пунктами Порядка и формами приложений.</p></li>
+      <li><h3>Пишет отчёт</h3><p>Дописывает в общий документ таблицу: что изменилось, какой пункт затронут, что поправить.</p></li>
+      <li><h3>Сообщает</h3><p>Присылает уведомление. Если изменений нет, пишет об этом коротко.</p></li>
+    </ol>
+    <p class="note">Агент отличается от обычного чата тем, что работает по расписанию и сам ведёт процесс. Человек читает результат и принимает решение.</p>
+  </section>
+
+  <section aria-labelledby="r">
+    <div class="slide-no">04 · Первый результат</div>
+    <h2 id="r">Сверка от 11 ноября 2026 года</h2>
+    <div class="tiles">
+      <div class="tile"><div class="n teal">6</div><div class="l">федеральных стандартов ВФА проверено</div></div>
+      <div class="tile"><div class="n amber">6</div><div class="l">пунктов Порядка к доработке</div></div>
+      <div class="tile"><div class="n red">2</div><div class="l">существенных расхождения</div></div>
+      <div class="tile"><div class="n">0</div><div class="l">новых изменений стандартов в 2026 году</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Пункт Порядка</th><th>Требование стандарта</th><th>Что поправить</th><th>Важность</th></tr></thead>
+        <tbody>
+          <tr><td class="p">п. 40</td><td>120н, п. 26: промежуточные результаты направляются обязательно, не позднее 5 рабочих дней до окончания мероприятия</td><td>Сделать направление обязательным для подтверждения достоверности</td><td><span class="pill hi">Высокая</span></td></tr>
+          <tr><td class="p">п. 45</td><td>120н, п. 32 «а»: изучаются инвентаризационные описи, сличительные ведомости, данные вне учёта</td><td>Дополнить перечень объектов аудита</td><td><span class="pill hi">Высокая</span></td></tr>
+          <tr><td class="p">п. 48</td><td>120н, п. 32 «б»: заключение направляется в уполномоченный орган</td><td>Уточнить адресата: Минэкономфин МО или ЦБ</td><td><span class="pill mid">Средняя</span></td></tr>
+          <tr><td class="p">пп. 63–64</td><td>91н, п. 27: основа годовой отчётности — заключения и реестр рисков</td><td>Указать источники данных для отчётности</td><td><span class="pill mid">Средняя</span></td></tr>
+          <tr><td class="p">Прил. 6</td><td>120н, п. 32 «б»: суждение о достоверности формирует уполномоченный орган</td><td>Переформулировать п. 4 формы отчётности</td><td><span class="pill mid">Средняя</span></td></tr>
+          <tr><td class="p">Преамбула</td><td>Действуют шесть стандартов</td><td>Перечислить все шесть</td><td><span class="pill low">Редакционная</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Это первичная сверка. Формулировки нужно сверить с текстами стандартов в КонсультантПлюс перед подготовкой проекта распоряжения.</p>
+  </section>
+
+  <section aria-labelledby="s">
+    <div class="slide-no">05 · Границы и безопасность</div>
+    <h2 id="s">Что агент делает и чего не делает</h2>
+    <div class="cmp">
+      <div>
+        <span class="tag teal">Делает</span>
+        <ul>
+          <li>Работает только с открытыми источниками: сайт Минфина, правовые базы.</li>
+          <li>Сравнивает их с Порядком. Порядок — опубликованный нормативный акт.</li>
+          <li>Готовит черновик выводов со ссылками на источники.</li>
+        </ul>
+      </div>
+      <div>
+        <span class="tag amber">Не делает</span>
+        <ul>
+          <li>Не принимает решений и не вносит изменения в распоряжение.</li>
+          <li>Не получает служебных данных и материалов проверок.</li>
+          <li>Не заменяет проверку по официальным текстам.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer>
+  <div class="wrap">Источники первой сверки: приказы Минфина России № 195н, 196н, 237н, 160н, 91н, 120н в действующих редакциях; приказ от 29.05.2025 № 65н; постановление Правительства РФ от 21.02.2026 № 176; распоряжение Минсоцразвития МО от 28.07.2020 № 21РВ-114 (ред. от 13.05.2026).</div>
+</footer>
+</body>
+</html>
